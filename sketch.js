@@ -6,7 +6,6 @@
  * 4. grow leaves
  * 5. decay leaves
  * 6. repeat
- *
  */
 
 var groundYCoords = [];
@@ -26,13 +25,18 @@ var MAX_SLOPE_LENGTH = 20;
 var MIN_GRADIENT = 0;
 var MAX_GRADIENT = 1;
 
-
 // constants for what a seed does and looks like
 var SEED_FALLING = 0;
 var SEED_RESTING = 1;
 var SEED_DIGGING = 2;
 var SEED_GROWING = 3;
 var SEED_RADIUS = 3;
+var SEED_MIN_DEPTH = 10;
+var SEED_MAX_DEPTH = 20;
+var SEED_MIN_DIG_SPEED = 0.04;
+var SEED_MAX_DIG_SPEED = 0.4;
+var SEED_MIN_REST = 60;
+var SEED_MAX_REST = 120;
 
 // color definitions
 var MIN_FADE_TIME = 40;
@@ -41,12 +45,6 @@ var MAX_R = 255;
 var MAX_G = 255;
 var MAX_B = 255;
 var MAX_ALPHA = 255;
-var SEED_MIN_DEPTH = 10;
-var SEED_MAX_DEPTH = 20;
-var SEED_MIN_DIG_SPEED = 0.04;
-var SEED_MAX_DIG_SPEED = 0.4;
-var SEED_MIN_REST = 60;
-var SEED_MAX_REST = 120;
 
 // constants that affect living things (so deep)
 var GRAVITY = 0.05;
@@ -84,9 +82,8 @@ function setup() {
 function draw() {
   // let's start by drawing the ground
   if (isClicked) {
-    bacground(0);
+    background(0);
     clickWait--;
-    calcGround();
 
     // draw ground
     stroke(MAX_R, MAX_G, MAX_B, MAX_ALPHA);
@@ -94,67 +91,99 @@ function draw() {
     for (var i = 0; i < groundYCoords.length - 1; i++) {
       line(i, groundYCoords[i], i+1, groundYCoords[i+1]);
     }
+    
+    // drop seeds and delete once planted
+    strokeWeight(2);
+    for (var i = seeds.length - 1; i >= 0; i--) {
+      seeds[i].Run(); 
+      if (!seeds[i].isAlive()) {
+        seeds.splice(i, 1);
+      }
+    }
   }
 }
 
-// /* 
-// * Gives a seed the following functionallity:
-// * falling, resting, digging, growing
-// */ 
-// function plantSeed(x, y) {
-//  // initialize starting position and velocity
-//  this.xPos = x;
-//  this.yPos = y;
-//  this.velocity = 0;
-//  this.alpha = MAX_ALPHA;
-//  this.status = SEED_FALLING;
-//  this.landingY = groundYCoords[x];
-//  this.restTime = round(random(SEED_MIN_REST, SEED_MAX_REST));
-//  this.digDepth = round(random(SEED_MIN_DEPTH, SEED_MAX_DEPTH));
+function mousePressed() {
+  if (mouseY < groundYCoords[mouseX]) {
+    if (clickWait < 1) {
+      if (!isClicked) {
+        isClicked = true;
+      }
+      seeds.push(new PlantSeed(mouseX, mouseY));
+      clickWait = 5;
+    }
+  }
+}
+
+/* 
+ * Gives a seed the following functionallity:
+ * falling, resting, digging, growing
+ */ 
+function PlantSeed(x, y) {
+  // initialize starting position and velocity
+  this.xPos = x;
+  this.yPos = y;
+  this.velocity = 0;
+  this.alpha = MAX_ALPHA;
+  this.status = SEED_FALLING;
+  this.landingY = groundYCoords[x];
+  this.restTime = round(random(SEED_MIN_REST, SEED_MAX_REST));
+  this.digDepth = round(random(SEED_MIN_DEPTH, SEED_MAX_DEPTH));
   
-//  // draws seed 
-//  this.Display = function() {
-//    noStroke();
-//    fill(MAX_R, MAX_G, MAX_B, this.alpha);
-//    ellipse(this.xPos, this.yPos, SEED_RADIUS, SEED_RADIUS);
-//  };
+  this.Run = function() {
+    this.Update();
+    this.Display();
+  };
   
-//  // updates seed coordinates when planted
-//  this.Update = function () {
-//    switch(this.status) {
-//      case SEED_FALLING:
-//        this.yPos += this.velocity;
-//        this.velocity += GRAVITY;
+  // draws seed 
+  this.Display = function() {
+    noStroke();
+    fill(MAX_R, MAX_G, MAX_B, this.alpha);
+    ellipse(this.xPos, this.yPos, SEED_RADIUS, SEED_RADIUS);
+  };
+  
+  // updates seed coordinates when planted
+  this.Update = function() {
+    switch(this.status) {
+      case SEED_FALLING:
+        this.yPos += this.velocity;
+        this.velocity += GRAVITY;
         
-//        // still falling?
-//        if (this.yPos >= this.landingY) 
-//          this.status = SEED_RESTING;
-//        break;
+        // still falling?
+        if (this.yPos >= this.landingY) {
+          this.status = SEED_RESTING;
+        }
+        break;
 
-//      case SEED_RESTING:
-//        this.restTime--;
-//        if (this.restTime <= 0)
-//          this.status = SEED_DIGGING;
-//        break;
+      case SEED_RESTING:
+        this.restTime--;
+        if (this.restTime <= 0) {
+          this.status = SEED_DIGGING;
+        }
+        break;
 
-//      case SEED_DIGGING:
-//        // seed decelerates as it digs
-//        var digSpeed = SEED_MAX_DIG_SPEED * (1 - ((this.yPos - this.landingY) / (this.digDepth)));
-//        digSpeed = digSpeed > SEED_MIN_DIG_SPEED ? digSpeed : SEED_MIN_DIG_SPEED;
-//        this.yPos += digSpeed;
+      case SEED_DIGGING:
+        // seed decelerates as it digs
+        var digSpeed = SEED_MAX_DIG_SPEED * (1 - ((this.yPos - this.landingY) / (this.digDepth)));
+        digSpeed = digSpeed > SEED_MIN_DIG_SPEED ? digSpeed : SEED_MIN_DIG_SPEED;
+        this.yPos += digSpeed;
 
-//        if (this.yPos >= this.landingY + this.digDepth) {
-//          this.status = SEED_GROWING;
-//        }
-//        break;
+        if (this.yPos >= this.landingY + this.digDepth) {
+          this.status = SEED_GROWING;
+        }
+        break;
       
-//      case SEED_GROWING:
-//        this.alpha -= DECAY;
-//        this.alpha = this.alpha > 0 ? this.alpha : 0;
-//        break;
-//    }
-//  };
-// }
+      case SEED_GROWING:
+        this.alpha -= DECAY;
+        this.alpha = this.alpha > 0 ? this.alpha : 0;
+        break;
+    }
+  };
+  
+  this.isAlive = function() {
+    return (this.alpha > 0);
+  };
+}
 
 /*
  * Calculates a sine wave for the ground at launch
